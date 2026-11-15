@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "MauriStore - برنامج محاسبة وإدارة المحل",
   "author": "MauriTech",
-  "main": "main.js",
+  "main": "server.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win"
