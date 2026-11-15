@@ -1,0 +1,41 @@
+{
+  "name": "mauristore",
+  "productName": "MauriStore",
+  "version": "1.0.0",
+  "description": "MauriStore - برنامج محاسبة وإدارة المحل",
+  "author": "MauriTech",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mauritech.mauristore",
+    "productName": "MauriStore",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/**/*",
+      "server/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": "nsis"
+    },
+    "files": [
+      "main.js",
+      "server/**/*",
+      "public/**/*",
+      "build/icon.ico",
+      "package.json"
+    ]
+  }
+}
