@@ -31,7 +31,7 @@ const r2=x=>Math.round((x+Number.EPSILON)*100)/100;
 const bk=require('./backup');
 const app=express();if(process.env.TRUST_PROXY)app.set('trust proxy',1);
 app.use((q,s,n)=>{s.set({'X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Referrer-Policy':'no-referrer','Strict-Transport-Security':'max-age=31536000'});n()});
-app.use(express.json({limit:'1mb'}));app.use(express.static(path.join(__dirname,'public')));
+app.use(express.json({limit:'1mb'}));app.use(express.static(__dirname));
 const err=(m,c=400)=>Object.assign(new Error(m),{code:c});
 const h=f=>(q,s)=>{try{s.json(f(q,s)??{ok:1})}catch(e){s.status(e.code||(/UNIQUE/.test(e.message)?409:500)).json({error:e.message})}};
 const sign=u=>jwt.sign({id:u.id,shop:u.shop_id,role:u.role,branch:u.branch_id,tv:u.tv||0},SECRET,{expiresIn:'12h'});
