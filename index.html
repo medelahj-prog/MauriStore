@@ -143,7 +143,7 @@ function modal(h){$('#modal').innerHTML=`<div class="bx">${h}<p><button onclick=
 function closeM(){if(window.__stop){window.__stop();window.__stop=null}$('#modal').className=''}
 const tbl=(h,r)=>`<div class="w"><table><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${r.map(x=>`<tr>${x.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${h.length}" style="color:var(--mu)">لا توجد بيانات</td></tr>`}</table></div>`;
 const kc=(l,x,c='')=>`<div class="k"><small>${l}</small><b class="${c}">${x}</b></div>`;
-async function api0(p,m='GET',b){let r;try{r=await fetch('/api'+p,{method:m,headers:{'content-type':'application/json',...(tok?{authorization:'Bearer '+tok}:{})},body:b?JSON.stringify(b):undefined})}catch(e){throw new Error(location.protocol=='file:'?'فتحت الملف مباشرة. شغّل الخادم (npm start) ثم افتح http://localhost:3000':'تعذّر الاتصال بالخادم. تأكد أنه يعمل وأن العنوان صحيح')}
+async function api0(p,m='GET',b){let r;try{r=await fetch('https://mauristore.onrender.com/api'+p,{method:m,headers:{'content-type':'application/json',...(tok?{authorization:'Bearer '+tok}:{})},body:b?JSON.stringify(b):undefined})}catch(e){throw new Error(location.protocol=='file:'?'فتحت الملف مباشرة. شغّل الخادم (npm start) ثم افتح http://localhost:3000':'تعذّر الاتصال بالخادم. تأكد أنه يعمل وأن العنوان صحيح')}
  let d={};try{d=await r.json()}catch(e){}
  if(r.status==401&&tok&&!p.startsWith('/login')){logout();throw new Error('انتهت الجلسة، سجّل الدخول من جديد')}
  if(r.status==402&&d.code=='SUSPENDED')lic.status='suspended';
