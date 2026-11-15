@@ -6,7 +6,7 @@
   "author": "MauriTech",
   "main": "server.js",
   "scripts": {
-    "start": "electron .",
+    "start": "node server.js",
     "dist": "electron-builder --win"
   },
   "dependencies": {
