@@ -60,7 +60,6 @@ button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid #cbd6ea;
 #toast{position:fixed;bottom:64px;left:50%;transform:translateX(-50%);background:#142a52;color:#fff;padding:10px 20px;border-radius:20px;display:none;z-index:30}
 #pa{display:none}
 body.lk .side,body.lk .top,body.lk .foot{display:none}body.lk .app{grid-template-columns:1fr}
-
 @media(max-width:1100px){.kp{grid-template-columns:1fr 1fr}.r2,.r3{grid-template-columns:1fr}.ki{width:70px;height:70px}.ki svg{width:40px;height:40px}}
 @media(max-width:860px){.app{grid-template-columns:1fr;grid-template-rows:auto 1fr}.side{order:-1;flex-direction:row;align-items:center;overflow-x:auto}.logo{display:none}#nav{flex-direction:row;padding:6px}#nav button{white-space:nowrap;padding:8px 12px;font-size:14px;width:auto}#nav button svg{width:20px;height:20px}#nav hr{display:none}.top{flex-wrap:wrap;gap:10px}.shop b{font-size:17px}.kpi b{font-size:26px}.kpi span{font-size:15px}.foot{font-size:12px;height:auto;padding:6px 10px;flex-wrap:wrap}.qa{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.kp{grid-template-columns:1fr}.kp>*,.r2>*,.r3>*{min-width:0}.kpi{padding:12px}.ki{width:64px;height:64px}.ki svg{width:36px;height:36px}.kpi b{font-size:26px}.wrap{padding:0 10px 12px}.top{margin:0 -10px 12px;padding:10px}.ch{height:300px;padding:10px 6px}.ya{min-width:30px;font-size:12px}.v{font-size:12px}.xl{font-size:11px}.qb{min-height:88px;font-size:15px}.photo{min-height:220px}.lgb{padding:4px 10px}}
@@ -109,7 +108,6 @@ body.lk .wrap{padding:0;display:block;background:#fff}body.lk main{max-width:non
 <div id="modal"></div><div id="toast"></div><div id="pa"></div>
 <script>
 const $=s=>document.querySelector(s),v=id=>$('#'+id)?.value;
-/* i18n: عربي / Français */
 let lang='ar';try{lang=localStorage.getItem('acc_lang')||'ar'}catch(e){}
 const X={'الرئيسية':'Accueil','المبيعات':'Ventes','المشتريات':'Achats','المخزون':'Stock','العملاء':'Clients','الموردون':'Fournisseurs','المصروفات':'Dépenses','الصندوق':'Caisse','التقارير':'Rapports','الإعدادات':'Paramètres','متجري':'Ma boutique',
 'مبيعات اليوم':'Ventes du jour','مبيعات الشهر':'Ventes du mois','صافي ربح الشهر':'Bénéfice net du mois','ديون العملاء':'Créances clients','مستحق للموردين':'Dettes fournisseurs','قيمة المخزون':'Valeur du stock','⚠️ منتجات قاربت على النفاد':'⚠️ Produits bientôt épuisés','المنتج':'Produit','الكمية':'Quantité','الحد الأدنى':'Seuil minimum','لا توجد بيانات':'Aucune donnée',
@@ -253,7 +251,7 @@ async function flush(){if(!tok||!OQ.length||flush.b)return;flush.b=1;
 addEventListener('online',flush);addEventListener('offline',()=>setOn(false));setInterval(flush,30000);
 function showFail(){modal(`<h3>فواتير فشلت مزامنتها</h3>${tbl(['الرقم المؤقت','الإجمالي','السبب'],OF.map(x=>[x.rec.no,f(x.rec.total),esc(x.err)]))}<p><button class="dg" onclick="OF=[];LS.s('acc_qf',OF);closeM();updateOfl()">مسح القائمة</button></p>`)}
 async function saveInv(){if(!cart.length)return toast('أضف منتجات أولًا');const S=view=='s',b={type:v('ty'),party_id:+v('pt')||null,branch_id:br,client_id:cid(),pay_method:v('pm')||null,pay_note:v('pn2')||'',items:cart.map(i=>({product_id:i.pid,qty:i.qty,price:i.price})),disc:0,tax_rate:0};
- try{const d=await api('/invoices','POST',b);try{localStorage.setItem('acc_tax',String(b.tax_rate))}catch(e){}tx0=String(b.tax_rate);cart=[];toast('تم حفظ الفاتورة '+d.no);await R();pr(d.id)}
+ try{const d=await api('/invoices','POST',b);try{localStorage.setItem('acc_tax',String(b.tax_rate))}catch(e){}tx0=String(b.tax_rate);cart=[];toast('تم حفظ الفاتورة '+d.no);await R();}
  catch(e){if(isNet(e)&&['sale','sale_return'].includes(b.type))return offSale(b);toast(e.message)}}
 async function voidInv(id){
   if(!confirm('هل أنت متأكد من إلغاء هذه الفاتورة نهائياً؟ سيتم إرجاع الكميات للمخزون، ومسح تأثيرها من الأرباح والتقارير.'))return;
@@ -479,7 +477,7 @@ function applyCount(){const items=Object.entries(CNT).filter(([k,x])=>x!==''&&x!
 function doTransfer(){run(()=>api('/stock/transfer','POST',{from_branch:br,to_branch:+v('tb'),items:[{product_id:+v('tp'),qty:+v('tq')}],note:v('tn')}),'تم النقل')}
 V.stk=async()=>{P=await api('/products?branch='+br);const mv=await api('/stock/moves?limit=30&branch='+br),KL={count:'جرد',transfer_out:'نقل (صادر)',transfer_in:'نقل (وارد)'},others=BR.filter(b=>b.id!=br),bn=BR.find(b=>b.id==br)||{name:''};
  return`<div class="card"><h3>جرد المخزون — ${esc(bn.name)}</h3><p style="color:var(--mu)">أدخل الكمية الفعلية الموجودة. اترك الخانة فارغة لعدم التغيير.</p><div class="row"><label>ملاحظة<input id="cn"></label><button class="pr" onclick="applyCount()">اعتماد الجرد</button></div><input placeholder="🔍 بحث" oninput="q=this.value;$('#ct').innerHTML=ctl()" style="margin:8px 0"><div id="ct">${ctl()}</div></div>`+
- (others.length?`<div class="card"><h3>نقل بضاعة إلى فرع آخر</h3><div class="row"><label>إلى فرع<select id="tb">${others.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></label><label>المنتج<select id="tp">${P.map(p=>`<option value="${p.id}">${esc(p.name)} (${p.qty})</option>`).join('')}</select></label><label>الكمية<input id="tq" type="number" min="1"></label><label>ملاحظة<input id="tn"></label><button class="pr" onclick="doTransfer()">نقل</button></div></div>`:'')+
+  (others.length?`<div class="card"><h3>نقل بضاعة إلى فرع آخر</h3><div class="row"><label>إلى فرع<select id="tb">${others.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></label><label>المنتج<select id="tp">${P.map(p=>`<option value="${p.id}">${esc(p.name)} (${p.qty})</option>`).join('')}</select></label><label>الكمية<input id="tq" type="number" min="1"></label><label>ملاحظة<input id="tn"></label><button class="pr" onclick="doTransfer()">نقل</button></div></div>`:'')+
  `<div class="card"><h3>سجل الحركات</h3>${tbl(['التاريخ','المنتج','النوع','التغيير','بعد','ملاحظة'],mv.map(m=>[m.at.slice(0,16),esc(m.product),KL[m.kind],m.delta,m.after,esc(m.note)]))}</div>`};
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 if(tok)boot();else R();
