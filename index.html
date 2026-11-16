@@ -280,27 +280,27 @@ function receipt(sh,x,it,pa){const T2={sale:'فاتورة بيع',purchase:'فا
  return`<div style="width:${m=='58'?'48mm':'72mm'};font:12px/1.4 monospace">${hd}<hr>${info}<hr>${it.map(i=>`<div>${esc(i.name)}</div><div style="display:flex;justify-content:space-between"><span>${i.qty} × ${f(i.price)}</span><span>${f(i.qty*i.price)}</span></div>`).join('')}<hr>${tot}${ft}</div>`}
 async function pr(id){
   try{
-    // جلب الفاتورة من السيرفر مباشرة
-    const inv = await api('/invoices?limit=1&id=' + id); // سنحتاج لتعديل بسيط في السيرفر لاحقاً
+    // جلب تفاصيل الفاتورة من السيرفر
+    const invList = await api('/invoices?limit=100'); 
+    const inv = invList.find(i => i.id == id);
+    if(!inv) throw new Error('الفاتورة غير موجودة');
+    
     const items = await api(`/invoices/${id}/items`);
     const shop = await api('/shop');
+    const party = inv.party_id ? {name: inv.party} : null;
     
-    // جلب بيانات العميل (اختياري)
-    const party = inv[0]?.party_id ? {name: inv[0].party} : null;
-    
-    // تجهيز أصناف الفاتورة
     const formattedItems = items.map(i => ({
       name: i.product_name || 'منتج',
       qty: i.qty,
       price: i.price
     }));
 
-    printDoc(receipt(shop, inv[0], formattedItems, party));
+    printDoc(receipt(shop, inv, formattedItems, party));
   } catch(e) { 
     toast('تعذر جلب تفاصيل الفاتورة: ' + e.message); 
   }
 }
-سسسسfunction lblM(id){const p=P.find(x=>x.id==id);if(!p.code)return toast('أضف رمز/باركود للمنتج أولًا');modal(`<p>${esc(p.name)} — عدد الملصقات:</p><input id="ln" type="number" value="12"><p><button class="pr" onclick="lbl(${id})">طباعة</button></p>`)}
+function lblM(id){const p=P.find(x=>x.id==id);if(!p.code)return toast('أضف رمز/باركود للمنتج أولًا');modal(`<p>${esc(p.name)} — عدد الملصقات:</p><input id="ln" type="number" value="12"><p><button class="pr" onclick="lbl(${id})">طباعة</button></p>`)}
 function lbl(id){const p=P.find(x=>x.id==id),n=+v('ln')||1;closeM();let h='<div style="display:flex;flex-wrap:wrap;gap:4px">';
  for(let i=0;i<n;i++)h+=`<div style="width:46mm;height:26mm;border:1px dashed #999;padding:1mm;text-align:center;font:10px sans-serif;overflow:hidden"><div>${esc(p.name)}</div><svg class="bc" data-c="${esc(p.code)}"></svg><div><b>${f(p.price)}</b></div></div>`;
  printDoc(h+'</div>',()=>$('#pa').querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.c,{format:'CODE128',height:28,width:1.2,fontSize:9,margin:0})}catch(e){}}),'a4')}
