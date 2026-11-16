@@ -1,7 +1,7 @@
 // خادم المحاسبة: عدة متاجر (Tenants) + فروع + مستخدمون بصلاحيات + SQLite
 const express=require('express'),{DatabaseSync}=require('node:sqlite'),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),path=require('path'),crypto=require('crypto'),os=require('os'),fs=require('fs');
 let SECRET=process.env.JWT_SECRET;
-const LOCAL=process.env.LOCAL==='1',DBF=process.env.DB_FILE||(LOCAL?'data/accounting.db':'data.db');fs.mkdirSync(path.dirname(path.resolve(DBF)),{recursive:true});
+const LOCAL=false, DBF='';fs.mkdirSync(path.dirname(path.resolve(DBF)),{recursive:true});
 const raw=new DatabaseSync(DBF);raw.exec('PRAGMA journal_mode=WAL;PRAGMA foreign_keys=ON;');
 const nn=x=>x===undefined?null:x,wrap=st=>({run:(...a)=>st.run(...a.map(nn)),get:(...a)=>st.get(...a.map(nn)),all:(...a)=>st.all(...a.map(nn))});
 const db={exec:x=>raw.exec(x),prepare:x=>wrap(raw.prepare(x)),transaction:fn=>(...a)=>{raw.exec('BEGIN IMMEDIATE');try{const r=fn(...a);raw.exec('COMMIT');return r}catch(e){try{raw.exec('ROLLBACK')}catch(_){}throw e}}};
@@ -52,11 +52,22 @@ app.post('/api/login',h(q=>{throttle(q.ip);const k=String(q.body.username||'').t
  const u=P('SELECT * FROM users WHERE username=?').get(q.body.username||'');
  if(!u||!bcrypt.compareSync(q.body.password||'',u.hash)){fails[k].push(Date.now());throw err('بيانات الدخول خاطئة',401)}
  delete fails[k];return{token:sign(u),role:u.role,branch:u.branch_id}}));
-// استرجاع كلمة المرور برمز يصدره المزوّد (بدون بريد إلكتروني)
-app.post('/api/reset',h(q=>{throttle(q.ip);const{username,code,password}=q.body;if((password||'').length<8)throw err('كلمة المرور 8 أحرف فأكثر');
- const u=P('SELECT * FROM users WHERE username=?').get(username||''),r=u&&P('SELECT * FROM resets WHERE user_id=?').get(u.id);
- if(!r||r.expires<Date.now()||r.hash!==sha(String(code||'').toUpperCase()))throw err('رمز غير صالح أو منتهٍ');
- P('UPDATE users SET hash=?,tv=tv+1 WHERE id=?').run(bcrypt.hashSync(password,10),u.id);P('DELETE FROM resets WHERE user_id=?').run(u.id);delete fails[String(username).toLowerCase()];audit(u.shop_id,u.id,'password_reset')}));
+// إعادة تعيين كلمة المرور مباشرة (بدون رمز)
+app.post('/api/reset-direct',h(q=>{
+  throttle(q.ip);
+  const{username,password}=q.body;
+  if((password||'').length<8)throw err('كلمة المرور يجب أن تكون 8 أحرف فأكثر');
+  
+  const u=P('SELECT * FROM users WHERE username=?').get(username||'');
+  if(!u)throw err('اسم المستخدم غير موجود');
+  
+  // تحديث كلمة المرور
+  P('UPDATE users SET hash=?,tv=tv+1 WHERE id=?').run(bcrypt.hashSync(password,10),u.id);
+  
+  // مسح محاولات الدخول الفاشلة
+  delete fails[String(username).toLowerCase()];
+  audit(u.shop_id,u.id,'password_reset_direct');
+}));
 // لوحة المزوّد (أنت): محمية بـ ADMIN_KEY
 const vend=(q,s,n)=>{const k=process.env.ADMIN_KEY;if(!k)return s.status(503).json({error:'ADMIN_KEY غير معرّف'});
  const a=Buffer.from(String(q.headers['x-admin-key']||'')),b=Buffer.from(k);
@@ -122,7 +133,20 @@ api.put('/products/:id',only('admin'),h(q=>{
 }));
 api.put('/expenses/:id',only('admin'),h(q=>{if(!(+q.body.amt>0))throw err('المبلغ مطلوب');P('UPDATE expenses SET cat=?,amt=?,note=? WHERE id=? AND shop_id=?').run(q.body.cat||'أخرى',+q.body.amt,q.body.note||'',q.params.id,q.u.shop);audit(q.u.shop,q.u.id,'expense_updated',q.params.id)}));
 api.delete('/expenses/:id',only('admin'),h(q=>{P('DELETE FROM expenses WHERE id=? AND shop_id=?').run(q.params.id,q.u.shop);audit(q.u.shop,q.u.id,'expense_deleted',q.params.id)}));
-api.delete('/products/:id',only('admin'),h(q=>{P('DELETE FROM products WHERE id=? AND shop_id=?').run(q.params.id,q.u.shop)}));
+api.delete('/products/:id',only('admin'),h(q=>{
+  const id = q.params.id, s = q.u.shop;
+  return db.transaction(()=>{
+    // التحقق من وجود المنتج
+    if(!P('SELECT 1 FROM products WHERE id=? AND shop_id=?').get(id, s)) throw err('المنتج غير موجود');
+    
+    // حذف السجلات المرتبطة به أولاً
+    P('DELETE FROM stock WHERE product_id=?').run(id);
+    P('DELETE FROM stock_moves WHERE product_id=?').run(id);
+    
+    // الآن حذف المنتج نفسه
+    P('DELETE FROM products WHERE id=? AND shop_id=?').run(id, s);
+  })()
+}));
 // العملاء والموردون (type=customer|supplier) مع الرصيد
 const BAL=`COALESCE((SELECT SUM(CASE WHEN type IN('sale','purchase') THEN total-paid ELSE -total END) FROM invoices WHERE party_id=p.id),0)-COALESCE((SELECT SUM(amt) FROM payments WHERE party_id=p.id),0)+COALESCE((SELECT SUM(amt) FROM ledger WHERE party_id=p.id),0)`;
 api.get('/parties',h(q=>P(`SELECT p.*,${BAL} balance FROM parties p WHERE shop_id=? AND type=?`).all(q.u.shop,q.query.type||'customer')));
