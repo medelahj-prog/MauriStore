@@ -278,9 +278,29 @@ function receipt(sh,x,it,pa){const T2={sale:'فاتورة بيع',purchase:'فا
  info=`${T2[x.type]} رقم ${x.no} — ${x.date}<br>${pa?esc(pa.name):'نقدي'}`,ft=`<p style="text-align:center">${esc(sh.footer||'')}</p>`;
  if(m=='a4')return hd+`<p>${info}</p>`+tbl(['المنتج','الكمية','السعر','المجموع'],it.map(i=>[esc(i.name),i.qty,f(i.price),f(i.qty*i.price)]))+`<p>${tot}</p>`+ft;
  return`<div style="width:${m=='58'?'48mm':'72mm'};font:12px/1.4 monospace">${hd}<hr>${info}<hr>${it.map(i=>`<div>${esc(i.name)}</div><div style="display:flex;justify-content:space-between"><span>${i.qty} × ${f(i.price)}</span><span>${f(i.qty*i.price)}</span></div>`).join('')}<hr>${tot}${ft}</div>`}
-async function pr(id){try{let x,it;const o=OQ.find(z=>z.rec.id==id);if(o){x=o.rec;it=x.items}else{x=INV.find(i=>i.id==id);it=(await api(`/invoices/${id}/items`)).map(i=>({...i,name:(P.find(p=>p.id==i.product_id)||{}).name||'#'+i.product_id}))}
- printDoc(receipt(await api('/shop'),x,it,PT.find(p=>p.id==x.party_id)))}catch(e){toast(e.message)}}
-function lblM(id){const p=P.find(x=>x.id==id);if(!p.code)return toast('أضف رمز/باركود للمنتج أولًا');modal(`<p>${esc(p.name)} — عدد الملصقات:</p><input id="ln" type="number" value="12"><p><button class="pr" onclick="lbl(${id})">طباعة</button></p>`)}
+async function pr(id){
+  try{
+    // جلب الفاتورة من السيرفر مباشرة
+    const inv = await api('/invoices?limit=1&id=' + id); // سنحتاج لتعديل بسيط في السيرفر لاحقاً
+    const items = await api(`/invoices/${id}/items`);
+    const shop = await api('/shop');
+    
+    // جلب بيانات العميل (اختياري)
+    const party = inv[0]?.party_id ? {name: inv[0].party} : null;
+    
+    // تجهيز أصناف الفاتورة
+    const formattedItems = items.map(i => ({
+      name: i.product_name || 'منتج',
+      qty: i.qty,
+      price: i.price
+    }));
+
+    printDoc(receipt(shop, inv[0], formattedItems, party));
+  } catch(e) { 
+    toast('تعذر جلب تفاصيل الفاتورة: ' + e.message); 
+  }
+}
+سسسسfunction lblM(id){const p=P.find(x=>x.id==id);if(!p.code)return toast('أضف رمز/باركود للمنتج أولًا');modal(`<p>${esc(p.name)} — عدد الملصقات:</p><input id="ln" type="number" value="12"><p><button class="pr" onclick="lbl(${id})">طباعة</button></p>`)}
 function lbl(id){const p=P.find(x=>x.id==id),n=+v('ln')||1;closeM();let h='<div style="display:flex;flex-wrap:wrap;gap:4px">';
  for(let i=0;i<n;i++)h+=`<div style="width:46mm;height:26mm;border:1px dashed #999;padding:1mm;text-align:center;font:10px sans-serif;overflow:hidden"><div>${esc(p.name)}</div><svg class="bc" data-c="${esc(p.code)}"></svg><div><b>${f(p.price)}</b></div></div>`;
  printDoc(h+'</div>',()=>$('#pa').querySelectorAll('.bc').forEach(s=>{try{JsBarcode(s,s.dataset.c,{format:'CODE128',height:28,width:1.2,fontSize:9,margin:0})}catch(e){}}),'a4')}
@@ -302,12 +322,64 @@ function doDebt(id){const a=+v('db1');if(!(a>0))return toast('أدخل المب�
 function printDebts(){const L=PL.filter(x=>x.balance>0.005).sort((a,b)=>b.balance-a.balance);printDoc(`<h3>${PTY=='customer'?'قائمة الديون المستحقة':'قائمة المستحق للموردين'}</h3>`+tbl(['الاسم','الهاتف','الرصيد','ملاحظة'],L.map(x=>[esc(x.name),esc(x.phone),f(x.balance),esc(x.note)]))+`<p><b>الإجمالي: ${f(sum(L,x=>x.balance))}</b></p>`,null,'a4')}
 function expM(id){const x=EX.find(e=>e.id==id);modal(`<h3>تعديل مصروف</h3><div class="row" style="flex-direction:column;align-items:stretch"><label>التصنيف<input id="ex1" value="${esc(x.cat)}"></label><label>المبلغ<input id="ex2" type="number" value="${x.amt}"></label><label>ملاحظة<input id="ex3" value="${esc(x.note)}"></label><button class="pr" onclick="doExp(${id})">حفظ</button></div>`)}
 function doExp(id){const b={cat:v('ex1'),amt:+v('ex2'),note:v('ex3')};closeM();run(()=>api('/expenses/'+id,'PUT',b),'تم الحفظ')}
-const ilh=()=>{const S=view=='s',Q=S?OQ.map(x=>x.rec):[];return tbl(['الرقم','التاريخ',S?'العميل':'المورد','الإجمالي','المتبقي',''],[...Q,...INV].map(x=>{const a=PT.find(c=>c.id==x.party_id);return[(String(x.id).startsWith('o')?'⏳ ':'')+x.no,x.date,a?esc(a.name):'نقدي',f(x.total),f(x.total-x.paid),`<button onclick="pr('${x.id}')">طباعة</button>${me.role=='admin'?` <button class="dg" onclick="voidInv('${x.id}')">إلغاء</button>`:''}`]}))+(INV.length&&INV.length%30==0?'<p><button onclick="moreInv()">تحميل المزيد</button></p>':'')};
+const ilh=()=>{const S=view=='s',Q=S?OQ.map(x=>x.rec):[];return tbl(['الرقم','التاريخ',S?'العميل':'المورد','الإجمالي','المتبقي',''],[...Q,...INV].map(x=>{const a=PT.find(c=>c.id==x.party_id);return[(String(x.id).startsWith('o')?'⏳ ':'')+x.no,x.date,a?esc(a.name):'نقدي',f(x.total),f(x.total-x.paid),`<button onclick="viewInv('${x.id}')">👁️ عرض</button> <button onclick="pr('${x.id}')">طباعة</button>${me.role=='admin'?` <button class="dg" onclick="voidInv('${x.id}')">إلغاء</button>`:''}`]}))+(INV.length&&INV.length%30==0?'<p><button onclick="moreInv()">تحميل المزيد</button></p>':'')};
+
+async function viewInv(id){
+  try {
+    const items = await api(`/invoices/${id}/items`);
+    const invData = await api('/invoices?limit=100'); 
+    const inv = invData.find(i => i.id == id);
+    
+    let html = `<h3>تفاصيل الفاتورة: ${inv ? inv.no : ''}</h3>`;
+    html += `<p><b>التاريخ:</b> ${inv ? inv.date : ''}</p>`;
+    html += `<p><b>العميل:</b> ${inv ? (inv.party || 'نقدي') : ''}</p>`;
+    html += `<div class="w"><table><tr><th>المنتج</th><th>الكمية</th><th>السعر</th><th>المجموع</th></tr>`;
+    
+    let total = 0;
+    items.forEach(i => {
+      const pName = (P.find(p=>p.id==i.product_id)||{}).name || 'منتج #'+i.product_id;
+      const itemTotal = i.qty * i.price;
+      total += itemTotal;
+      html += `<tr><td>${esc(pName)}</td><td>${i.qty}</td><td>${f(i.price)}</td><td>${f(itemTotal)}</td></tr>`;
+    });
+    
+    html += `</table></div>`;
+    html += `<p class="tt">الإجمالي: ${f(total)}</p>`;
+    html += `<p><b>طريقة الدفع:</b> ${inv ? (inv.pay_method||'نقدي') : ''}</p>`;
+    
+    modal(html); 
+  } catch(e) { toast('تعذر جلب التفاصيل: ' + e.message); }
+}
 async function moreInv(){const S=view=='s';try{INV.push(...await api(`/invoices?type=${S?'sale':'purchase'}&q=${encodeURIComponent(iqs)}&limit=30&offset=${INV.length}`));$('#il').innerHTML=ilh()}catch(e){toast(e.message)}}
 const shopBody=()=>({name:v('s1'),legal_name:v('s2'),tax_id:v('s3'),address:v('s4'),phone:v('s5'),footer:v('s6')});
 function logoUp(i){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,240/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);run(()=>api('/shop','PUT',{...shopBody(),logo:c.toDataURL('image/png')}),'تم الحفظ')};im.src=r.result};if(i.files[0])r.readAsDataURL(i.files[0])}
-function forgot(){modal(`<h3>نسيت كلمة المرور؟</h3><p style="color:var(--mu)">اطلب رمز الاسترجاع من مزوّد البرنامج، ثم أدخله هنا.</p><div class="row" style="flex-direction:column;align-items:stretch"><label>اسم المستخدم<input id="fu"></label><label>رمز الاسترجاع<input id="fc"></label><label>كلمة المرور الجديدة<input id="fp" type="password"></label><button class="pr" onclick="doForgot()">تأكيد</button></div>`)}
-async function doForgot(){try{await api('/reset','POST',{username:v('fu'),code:v('fc'),password:v('fp')});closeM();toast('تم تغيير كلمة المرور، سجّل الدخول')}catch(e){toast(e.message)}}
+function forgot(){
+  modal(`
+    <h3>إعادة تعيين كلمة المرور</h3>
+    <p style="color:var(--mu)">أدخل اسم المستخدم وكلمة المرور الجديدة.</p>
+    <div class="row" style="flex-direction:column;align-items:stretch">
+      <label>اسم المستخدم<input id="fu"></label>
+      <label>كلمة المرور الجديدة<input id="fp" type="password"></label>
+      <button class="pr" onclick="doForgot()">تأكيد التغيير</button>
+    </div>
+  `)
+}
+
+async function doForgot(){
+  try {
+    const username = v('fu').trim();
+    const newPassword = v('fp');
+    if(!username || !newPassword || newPassword.length < 8) {
+      return toast('اسم المستخدم مطلوب، وكلمة المرور يجب أن تكون 8 أحرف على الأقل');
+    }
+    // إرسال الطلب للسيرفر لتغيير كلمة المرور
+    await api('/reset-direct', 'POST', { username, password: newPassword });
+    closeM();
+    toast('تم تغيير كلمة المرور بنجاح، يمكنك الدخول الآن');
+  } catch(e) {
+    toast(e.message);
+  }
+}
 const BRAND={mail:'elhajmed410@gmail.com',phone:'49131313'};let UN='';try{UN=localStorage.getItem('acc_un')||''}catch(e){}
 const IC=(()=>{const s=d=>`<svg viewBox="0 0 24 24">${d}</svg>`,p=d=>`<path d="${d}"/>`;return{
  home:s(p('M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10')),cart:s(p('M3 4h2l2.4 11h11l2-8H6.5')+'<circle cx="9" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/>'),
